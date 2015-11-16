@@ -26,6 +26,7 @@ package org.jenkinsci.plugins.workflow.job;
 
 import hudson.AbortException;
 import hudson.Extension;
+import hudson.ExtensionList;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.init.InitMilestone;
@@ -35,6 +36,8 @@ import hudson.model.BuildableItem;
 import hudson.model.Cause;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
+import hudson.model.DescriptorVisibilityFilter;
+import hudson.model.Executor;
 import hudson.model.Item;
 import hudson.model.ItemGroup;
 import hudson.model.Items;
@@ -44,6 +47,7 @@ import hudson.model.Label;
 import hudson.model.Node;
 import hudson.model.Queue;
 import hudson.model.ResourceList;
+import hudson.model.Run;
 import hudson.model.RunMap;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
@@ -56,6 +60,7 @@ import hudson.scm.SCM;
 import hudson.search.SearchIndexBuilder;
 import hudson.security.ACL;
 import hudson.slaves.WorkspaceList;
+import hudson.tasks.LogRotator;
 import hudson.triggers.SCMTrigger;
 import hudson.triggers.Trigger;
 import hudson.triggers.TriggerDescriptor;
@@ -71,18 +76,23 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.CheckForNull;
 import javax.servlet.ServletException;
+import jenkins.model.BuildDiscarder;
 import jenkins.model.Jenkins;
 import jenkins.model.ParameterizedJobMixIn;
 import jenkins.model.lazy.LazyBuildMixIn;
 import jenkins.triggers.SCMTriggerItem;
 import jenkins.util.TimeDuration;
+import net.sf.json.JSONObject;
 import org.acegisecurity.Authentication;
 import org.jenkinsci.plugins.workflow.flow.FlowDefinition;
+import org.jenkinsci.plugins.workflow.flow.FlowDefinitionDescriptor;
+import org.jenkinsci.plugins.workflow.job.properties.BuildDiscarderProperty;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
+import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
@@ -94,6 +104,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @SuppressWarnings("deprecation")
     private hudson.model.BuildAuthorizationToken authToken;
     private transient LazyBuildMixIn<WorkflowJob,WorkflowRun> buildMixIn;
+    /** defaults to true */
+    private @CheckForNull Boolean concurrentBuild;
 
     public WorkflowJob(ItemGroup parent, String name) {
         super(parent, name);
@@ -151,7 +163,8 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     @SuppressWarnings("deprecation")
     @Override protected void submit(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException, Descriptor.FormException {
         super.submit(req, rsp);
-        definition = req.bindJSON(FlowDefinition.class, req.getSubmittedForm().getJSONObject("definition"));
+        JSONObject json = req.getSubmittedForm();
+        definition = req.bindJSON(FlowDefinition.class, json.getJSONObject("definition"));
         authToken = hudson.model.BuildAuthorizationToken.create(req);
         for (Trigger t : triggers) {
             t.stop();
@@ -161,10 +174,11 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         } else {
             quietPeriod = null;
         }
-        triggers.rebuild(req, req.getSubmittedForm(), Trigger.for_(this));
+        triggers.rebuild(req, json, Trigger.for_(this));
         for (Trigger t : triggers) {
             t.start(this, true);
         }
+        concurrentBuild = json.optBoolean("concurrentBuild") ? null : false;
     }
     
     @Override public boolean isBuildable() {
@@ -291,13 +305,49 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
     }
 
     @Override public CauseOfBlockage getCauseOfBlockage() {
-        // TODO is there any legitimate reason to block a flow? maybe !isConcurrentBuild()?
+        if (isLogUpdated() && !isConcurrentBuild()) {
+            return new BecauseOfBuildInProgress(getLastBuild());
+        }
         return null;
     }
+    // TODO use BlockedBecauseOfBuildInProgress in 1.624 (and remove Messages.properties in resources)
+    public static class BecauseOfBuildInProgress extends CauseOfBlockage {
+        private final Run<?,?> build;
 
+        public BecauseOfBuildInProgress(Run<?, ?> build) {
+            this.build = build;
+        }
+
+        @Override
+        public String getShortDescription() {
+            Executor e = build.getExecutor();
+            String eta = "";
+            if (e != null) {
+                eta = Messages.BlockedBecauseOfBuildInProgress_ETA(e.getEstimatedRemainingTime());
+            }
+            int lbn = build.getNumber();
+            return Messages.BlockedBecauseOfBuildInProgress_shortDescription(lbn, eta);
+        }
+    }
+
+    @Exported
     @Override public boolean isConcurrentBuild() {
-        // TODO should this be configurable?
-        return true;
+        return !Boolean.FALSE.equals(concurrentBuild);
+    }
+    
+    public void setConcurrentBuild(boolean b) throws IOException {
+        concurrentBuild = b ? null : false;
+        save();
+    }
+
+    @Override public ACL getACL() {
+        ACL acl = super.getACL();
+        for (JobProperty<?> property : properties) {
+            if (property instanceof WorkflowJobProperty) {
+                acl = ((WorkflowJobProperty) property).decorateACL(acl);
+            }
+        }
+        return acl;
     }
 
     @Override public void checkAbortPermission() {
@@ -395,7 +445,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             return Collections.emptySet();
         }
         List<SCM> scms = new LinkedList<SCM>();
-        for (WorkflowRun.SCMCheckout co : b.checkouts) {
+        for (WorkflowRun.SCMCheckout co : b.checkouts(null)) {
             scms.add(co.scm);
         }
         return scms;
@@ -420,7 +470,7 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
             listener.getLogger().println("no previous build to compare to");
             return PollingResult.NO_CHANGES;
         }
-        for (WorkflowRun.SCMCheckout co : b.checkouts) {
+        for (WorkflowRun.SCMCheckout co : b.checkouts(listener)) {
             if (!co.scm.supportsPolling()) {
                 listener.getLogger().println("polling not supported from " + co.workspace + " on " + co.node);
             }
@@ -477,6 +527,29 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
         // TODO call SCM.processWorkspaceBeforeDeletion
     }
 
+    /** Actually it does, but we want to suppress this section of {@code Job/configure.jelly} in favor of {@link BuildDiscarderProperty}. */
+    @Override public boolean supportsLogRotator() {
+        return false;
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override public LogRotator getLogRotator() {
+        BuildDiscarder buildDiscarder = getBuildDiscarder();
+        return buildDiscarder instanceof LogRotator ? (LogRotator) buildDiscarder : null;
+    }
+
+    @Override public void setBuildDiscarder(BuildDiscarder bd) throws IOException {
+        removeProperty(BuildDiscarderProperty.class);
+        if (bd != null) {
+            addProperty(new BuildDiscarderProperty(bd));
+        }
+    }
+
+    @Override public BuildDiscarder getBuildDiscarder() {
+        BuildDiscarderProperty prop = getProperty(BuildDiscarderProperty.class);
+        return prop != null ? prop.getStrategy() : /* settings compatibility */ super.getBuildDiscarder();
+    }
+
     @Initializer(before=InitMilestone.EXTENSIONS_AUGMENTED)
     public static void alias() {
         Items.XSTREAM2.alias("flow-definition", WorkflowJob.class);
@@ -491,6 +564,12 @@ public final class WorkflowJob extends Job<WorkflowJob,WorkflowRun> implements B
 
         @Override public TopLevelItem newInstance(ItemGroup parent, String name) {
             return new WorkflowJob(parent, name);
+        }
+
+        /** TODO JENKINS-20020 can delete this in case {@code f:dropdownDescriptorSelector} defaults to applying {@code h.filterDescriptors} */
+        @Restricted(DoNotUse.class) // Jelly
+        public Collection<FlowDefinitionDescriptor> getDefinitionDescriptors(WorkflowJob context) {
+            return DescriptorVisibilityFilter.apply(context, ExtensionList.lookup(FlowDefinitionDescriptor.class));
         }
 
     }

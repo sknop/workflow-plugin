@@ -1,10 +1,83 @@
 # Changelog
 
-Only noting significant user-visible or major API changes, not internal code cleanups and minor bug fixes.
+Only noting significant user changes, not internal code cleanups and minor bug fixes.
 
-## 1.7 (upcoming)
+## 1.11 (Nov 12 2015)
 
-* [JENKINS-28317](https://issues.jenkins-ci.org/browse/JENKINS-28317) `withEnv` clobbered environment variables set in enclosing steps.
+* _Workflow: Multibranch_ plugin now released as nonbeta and available from the regular update center. (Currently not included in _Workflow: Aggregator_.)
+
+## 1.11-beta-4 (Nov 09 2015)
+
+* Minor enhancements to JENKINS-28769.
+
+## 1.11-beta-3 (Nov 05 2015)
+
+* [JENKINS-28769](https://issues.jenkins-ci.org/browse/JENKINS-28769): syntax highlighting, example scripts, and basic code snippets for Workflow scripts in the browser.
+* When running the `build` step, the upstream log should now show a link to the downstream build.
+
+## 1.11-beta-2 (Oct 26 2015)
+
+* [JENKINS-25550](https://issues.jenkins-ci.org/browse/JENKINS-25550): flow builds hung due to a buggy step (and certain erroneous scripts) can now be forcibly stopped by using hyperlinks that appear in the console after an initial abort attempt.
+* [JENKINS-30974](https://issues.jenkins-ci.org/browse/JENKINS-30974): error during build queue rendering on 1.624+ when using non-concurrent-capable Workflow builds.
+* Added the `absoluteUrl` property to `RunWrapper`
+* [JENKINS-29542](https://issues.jenkins-ci.org/browse/JENKINS-29542): fixed help display for `env` global variable.
+
+## 1.11-beta-1 (Oct 07 2015)
+
+* [JENKINS-30086](https://issues.jenkins-ci.org/browse/JENKINS-30086): improve inline help and display names for steps, and show step function names in _Snippet Generator_.
+* [JENKINS-30346](https://issues.jenkins-ci.org/browse/JENKINS-30346): added a cross platform `deleteDir` step to recursively delete a directory and its contents.
+* [JENKINS-30088](https://issues.jenkins-ci.org/browse/JENKINS-30088): Adjust how steps are displayed, to make the appearance cleaner and keep a focus on the DSL
+
+## 1.10.1 (Oct 15 2015)
+
+* [JENKINS-30974](https://issues.jenkins-ci.org/browse/JENKINS-30974): backport from 1.11.
+
+## 1.10 (Aug 31 2015)
+
+* [JENKINS-30122](https://issues.jenkins-ci.org/browse/JENKINS-30122): regression in usage of the Authorize Project plugin in 1.10-beta-1.
+* [JENKINS-29739](https://issues.jenkins-ci.org/browse/JENKINS-29739): _Snippet Generator_ did not work for `build` with exactly one parameter.
+* [JENKINS-29169](https://issues.jenkins-ci.org/browse/JENKINS-29169): `build('otherWorkflow').buildVariables` can now be used to access variables set using `env.KEY = 'value'` notation.
+
+## 1.10-beta-1 (Aug 21 2015)
+
+* [JENKINS-26942](https://issues.jenkins-ci.org/browse/JENKINS-26942): added `stash` and `unstash` steps (deprecating `unarchive`).
+* [JENKINS-26135](https://issues.jenkins-ci.org/browse/JENKINS-26135): expand global library functionality to allow predefined variables and even custom DSLs.
+* [JENKINS-29890](https://issues.jenkins-ci.org/browse/JENKINS-29890): `input` step submitter was not being consistently logged.
+* [JENKINS-25879](https://issues.jenkins-ci.org/browse/JENKINS-25879), [JENKINS-29875](https://issues.jenkins-ci.org/browse/JENKINS-29875): New API to run long lived tasks that could block on I/O in a separate thread avoiding to block main CPS VM thread.
+* [JENKINS-29653](https://issues.jenkins-ci.org/browse/JENKINS-29653): visual tweak to _Snippet Generator_.
+
+## 1.9 (Aug 06 2015)
+
+* _Running Steps_ link is now called _Workflow Steps_ as it will show steps for workflows that have long since completed.
+* [JENKINS-29738](https://issues.jenkins-ci.org/browse/JENKINS-29738): TimeoutStep restarts the timeout value when `onResume` method is invoked
+* [JENKINS-26163](https://issues.jenkins-ci.org/browse/JENKINS-26163): `AbstractStepExecutionImpl.onResume` was not (usually) being called for block-scoped steps, leading to incorrect behavior after Jenkins restart for flows inside `timeout` or `waitUntil`.
+* [JENKINS-26761](https://issues.jenkins-ci.org/browse/JENKINS-26761): `NullPointerException` from Git commit notification requests under unknown circumstances; improved robustness and logging.
+* Improvements to JENKINS-29221 fix from 1.9-beta-1.
+
+Note: if you also have _CloudBees Workflow: Groovy Checkpoint_ installed, you _must_ upgrade it to 1.4.
+
+## 1.9-beta-1 (Jul 27 2015)
+
+* [JENKINS-26129](https://issues.jenkins-ci.org/browse/JENKINS-26129): Experimental support for multibranch workflows. (For now, in a separate plugin, not included in _Workflow: Aggregator_, since it depends on the Branch API plugin which does not have a non-beta release and so is available only from the experimental update center.)
+* [JENKINS-28131](https://issues.jenkins-ci.org/browse/JENKINS-28131): pass `NODE_NAME` into `node {}`.
+* [JENKINS-26860](https://issues.jenkins-ci.org/browse/JENKINS-26860): added _Execute concurrent builds if necessary_ option for Workflow projects.
+* [JENKINS-28756](https://issues.jenkins-ci.org/browse/JENKINS-28756): dropdown for _General SCM_ step incorrectly listed SCMs not compatible with Workflow.
+* [JENKINS-29221](https://issues.jenkins-ci.org/browse/JENKINS-29221): better robustness when the Groovy script is uncompilable.
+* [JENKINS-29571](https://issues.jenkins-ci.org/browse/JENKINS-29571): corrupt build record after renaming a job.
+
+## 1.8 (Jun 01 2015)
+
+* Now based on Jenkins core 1.609.x.
+* [JENKINS-24673](https://issues.jenkins-ci.org/browse/JENKINS-24673), [JENKINS-27392](https://issues.jenkins-ci.org/browse/JENKINS-27392): Added `wrap` step, permitting compatibility with plugins offering build wrappers. The first is the Xvnc plugin as of 1.22.
+* [JENKINS-25938](https://issues.jenkins-ci.org/browse/JENKINS-25938): avoid creating a Java (native) thread for every executor (flow build or `node {}` block).
+* [JENKINS-22941](https://issues.jenkins-ci.org/browse/JENKINS-22941): allow Jenkins safe restart to proceed even while a flow build is running, so long as it is just waiting (for an external process, `waitUntil`, etc.).
+* [JENKINS-26900](https://issues.jenkins-ci.org/browse/JENKINS-26900): hide the “flyweight” executor on master corresponding to the flow build when it is just waiting.
+
+## 1.7 (May 29 2015)
+
+* [JENKINS-28317](https://issues.jenkins-ci.org/browse/JENKINS-28317): `withEnv` clobbered environment variables set in enclosing steps.
+* Ability to make some steps (such as `catchError`) as “advanced/deprecated”.
+* Ability to define global variables available to all scripts, with accompanying documentation, such as `env` and `currentBuild`.
 
 ## 1.6 (May 04 2015)
 
@@ -18,10 +91,19 @@ Only noting significant user-visible or major API changes, not internal code cle
 * Now based on Jenkins core 1.596.1.
 * [JENKINS-27531](https://issues.jenkins-ci.org/browse/JENKINS-27531): critical startup error in 1.597+ loading build records migrated from before 1.597.
 * [JENKINS-27695](https://issues.jenkins-ci.org/browse/JENKINS-27695): critical error in 1.607+ running `node` blocks.
-* [JENKINS-26128](https://issues.jenkins-ci.org/browse/JENKINS-26128) added a `withEnv` step. `env.VAR = value` syntax remains supported but `withEnv` should be preferred.
+* [JENKINS-26128](https://issues.jenkins-ci.org/browse/JENKINS-26128): added a `withEnv` step. `env.VAR = value` syntax remains supported but `withEnv` should be preferred.
 * [JENKINS-27474](https://issues.jenkins-ci.org/browse/JENKINS-27474): added a `fileExists` step.
+* [JENKINS-26552](https://issues.jenkins-ci.org/browse/JENKINS-26552) and thus [JENKINS-27389](https://issues.jenkins-ci.org/browse/JENKINS-27389): problems with environment variables fixed.
 * Avoid some possible name clashes with function names in scripts (`build` reported).
 * API addition: block-scoped steps can now pass in `EnvironmentExpander` and/or `ConsoleLogFilter` to better customize processing of nested code.
+
+## 1.4.2 (Jul 21 2015)
+
+* JENKINS-28131 backport from 1.9.
+
+## 1.4.1 (Jul 29 2015)
+
+* JENKINS-26761 robustness/diagnostics backport from 1.9.
 
 ## 1.4 (Mar 16 2015)
 
@@ -77,7 +159,6 @@ Only noting significant user-visible or major API changes, not internal code cle
 * Incorrect build result (status) sometimes shown in log.
 * `url:` can now be omitted from the `git` step when it is the only parameter.
 
-## 1.0
+## 1.0 (Nov 25 2014)
 
-No changes from 1.0-beta-1.
-See [here](https://github.com/jenkinsci/workflow-plugin/blob/cdca218ca11e127d97543a2e209803708c5af9d8/CHANGES.md) for changes in pre-1.0 betas.
+See [archives](https://github.com/jenkinsci/workflow-plugin/blob/cdca218ca11e127d97543a2e209803708c5af9d8/CHANGES.md) for changes in pre-1.0 betas.

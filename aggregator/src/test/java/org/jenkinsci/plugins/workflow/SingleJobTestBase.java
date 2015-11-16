@@ -26,16 +26,15 @@ package org.jenkinsci.plugins.workflow;
 
 import hudson.model.queue.QueueTaskFuture;
 import hudson.slaves.DumbSlave;
-import javax.inject.Inject;
 import jenkins.model.Jenkins;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
-import org.jenkinsci.plugins.workflow.test.steps.WatchYourStep;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Rule;
+import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.RestartableJenkinsRule;
 
@@ -48,10 +47,6 @@ public abstract class SingleJobTestBase extends Assert {
 
     @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
     @Rule public RestartableJenkinsRule story = new RestartableJenkinsRule();
-
-    @Deprecated
-    @Inject
-    WatchYourStep.DescriptorImpl watchDescriptor;
 
     // currently executing workflow and its build
     public WorkflowJob p;
@@ -86,7 +81,7 @@ public abstract class SingleJobTestBase extends Assert {
         assert b.isBuilding();
     }
 
-    /** @deprecated use {@link JenkinsRuleExt#waitForCompletion} instead */
+    /** @deprecated use {@link JenkinsRule#waitForCompletion} instead */
     public void waitForWorkflowToComplete() throws Exception {
         do {
             waitForWorkflowToSuspend(e);

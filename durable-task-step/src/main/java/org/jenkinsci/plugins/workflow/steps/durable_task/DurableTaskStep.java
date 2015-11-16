@@ -81,7 +81,6 @@ public abstract class DurableTaskStep extends AbstractStepImpl {
         @StepContextParameter private transient Launcher launcher;
         @StepContextParameter private transient TaskListener listener;
         private transient long recurrencePeriod;
-        private transient int stopAttempt;
         private Controller controller;
         private String node;
         private String remote;
@@ -136,15 +135,9 @@ public abstract class DurableTaskStep extends AbstractStepImpl {
         }
 
         @Override public void stop(Throwable cause) throws Exception {
-            try {
-                FilePath workspace = getWorkspace();
-                if (workspace != null) {
-                    controller.stop(workspace, getContext().get(Launcher.class));
-                }
-            } finally {
-                if (stopAttempt++ == 1) { // second attempt
-                    getContext().onFailure(cause);
-                }
+            FilePath workspace = getWorkspace();
+            if (workspace != null) {
+                controller.stop(workspace, getContext().get(Launcher.class));
             }
         }
 
@@ -153,7 +146,7 @@ public abstract class DurableTaskStep extends AbstractStepImpl {
             try {
                 check();
             } finally {
-                if (recurrencePeriod > 0 && stopAttempt < 2) {
+                if (recurrencePeriod > 0) {
                     Timer.get().schedule(this, recurrencePeriod, TimeUnit.MILLISECONDS);
                 }
             }
@@ -193,6 +186,9 @@ public abstract class DurableTaskStep extends AbstractStepImpl {
                     LOGGER.log(Level.FINE, "still running in {0} on {1}", new Object[] {remote, node});
                 } else {
                     recurrencePeriod = 0;
+                    if (controller.writeLog(workspace, listener.getLogger())) {
+                        LOGGER.log(Level.FINE, "last-minute output in {0} on {1}", new Object[] {remote, node});
+                    }
                     controller.cleanup(workspace);
                     if (exitCode == 0) {
                         getContext().onSuccess(exitCode);

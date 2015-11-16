@@ -9,8 +9,8 @@ import org.jenkinsci.plugins.workflow.actions.ErrorAction;
 import org.jenkinsci.plugins.workflow.graph.FlowGraphWalker;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import static org.junit.Assert.*;
+import org.junit.Ignore;
 import org.junit.Test;
-import org.jvnet.hudson.test.RandomlyFails;
 
 public class CpsScriptTest extends AbstractCpsFlowTest {
     /**
@@ -51,7 +51,7 @@ public class CpsScriptTest extends AbstractCpsFlowTest {
     /**
      * The code getting evaluated must also get CPS transformation.
      */
-    @RandomlyFails("TODO future != null, perhaps because CpsThread.resume is intended to be @CpsVmThreadOnly (so assumes that the promise is just set is not cleared by runNextChunk) yet we are calling it from the test thread; extremely dubious test design, should probably be using SemaphoreStep to be more realistic")
+    @Ignore("TODO usually future == null, perhaps because CpsThread.resume is intended to be @CpsVmThreadOnly (so assumes that the promise is just set is not cleared by runNextChunk) yet we are calling it from the test thread; extremely dubious test design, should probably be using SemaphoreStep to be more realistic")
     @Test
     public void evaluateShallBeCpsTransformed() throws Exception {
         CpsFlowDefinition flow = new CpsFlowDefinition("evaluate('1+com.cloudbees.groovy.cps.Continuable.suspend(2+3)')");
@@ -92,8 +92,7 @@ public class CpsScriptTest extends AbstractCpsFlowTest {
         StringBuilder msg = new StringBuilder();
 
         FlowGraphWalker walker = new FlowGraphWalker(exec);
-        FlowNode n;
-        while ((n = walker.next()) != null) {
+        for (FlowNode n : walker) {
             ErrorAction e = n.getAction(ErrorAction.class);
             if (e != null) {
                 msg.append(Functions.printThrowable(e.getError()));

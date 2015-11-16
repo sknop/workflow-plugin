@@ -17,6 +17,7 @@ import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.Step;
+import org.jenkinsci.plugins.workflow.util.StaplerReferer;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -84,7 +85,8 @@ public class BuildTriggerStep extends AbstractStepImpl {
         @Override public Step newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             BuildTriggerStep step = (BuildTriggerStep) super.newInstance(req, formData);
             // Cf. ParametersDefinitionProperty._doBuild:
-            JSONArray params = formData.optJSONArray("parameter");
+            Object parameter = formData.get("parameter");
+            JSONArray params = parameter != null ? JSONArray.fromObject(parameter) : null;
             if (params != null) {
                 Jenkins jenkins = Jenkins.getInstance();
                 Job<?,?> context = StaplerReferer.findItemFromRequest(Job.class);
@@ -121,7 +123,7 @@ public class BuildTriggerStep extends AbstractStepImpl {
 
         @Override
         public String getDisplayName() {
-            return "Build a Job";
+            return "Build a job";
         }
 
         public AutoCompletionCandidates doAutoCompleteJob(@AncestorInPath ItemGroup<?> context, @QueryParameter String value) {
